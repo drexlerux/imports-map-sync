@@ -1,0 +1,24 @@
+{
+  "name": "imports-map-sync",
+  "version": "1.0.0",
+  "description": "Single SPA importsmaps.json file synchronizer",
+  "main": "s3-manager.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/drexlerux/imports-map-sync.git"
+  },
+  "keywords": [
+    "spa",
+    "sync",
+    "importsmap"
+  ],
+  "author": "drexlerux",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/drexlerux/imports-map-sync/issues"
+  },
+  "homepage": "https://github.com/drexlerux/imports-map-sync#readme"
+}
