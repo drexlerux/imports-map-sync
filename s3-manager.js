@@ -306,12 +306,22 @@ class S3Manager {
 			.join('|')
 			.replace(/@/g, '')
 			.replace(/\//g, '-');
-		console.log(appsRegex);
+
 		const regexPath = `/(${appsRegex})/${this.BRANCH}`;
-		console.log('regexPath', regexPath);
+
 		return jsonRawData
 			.replace(new RegExp(regexPath, 'g'), '')
 			.replace(new RegExp('\\.' + MICROTIME_ZERO, 'g'), '');
+	}
+
+	/**
+	 *
+	 * @method getMicroTime()
+	 * @description getting microtime string
+	 * @returns {string}
+	 */
+	getMicroTime() {
+		return this.MODE === LOCAL ? '' : `.${this.microtime}`;
 	}
 
 	/**
@@ -323,8 +333,8 @@ class S3Manager {
 	 */
 	setAppConfig(config) {
 		config.devServer.port = this.PORT;
-		config.output.filename = `js/[name].${this.microtime}.js`;
-		config.output.chunkFilename = `js/[name].${this.microtime}.js`;
+		config.output.filename = `js/[name]${this.getMicroTime()}.js`;
+		config.output.chunkFilename = `js/[name]${this.getMicroTime()}.js`;
 	}
 }
 
