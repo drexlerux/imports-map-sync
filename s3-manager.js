@@ -5,7 +5,8 @@ const path = require('path');
 const AWS = require('aws-sdk');
 require('dotenv').config();
 
-const fileConfigPath = path.join(__dirname, 'config.json');
+const fileConfigPath = path.resolve('config.json');
+
 const TEMPLATE = 'template';
 const LOCAL = 'local';
 const LOCALHOST = 'localhost';
@@ -41,15 +42,15 @@ class S3Manager {
       {
         prefix: TEMPLATE,
         pathLocation: `${this.LOCAL_ORIGIN}${port}/${this.getRelativePath()}`,
-        checker: (prefix, cb) => cb(true)
-      }
+        checker: (prefix, cb) => cb(true),
+      },
     ];
 
     if (this.MODE !== 'local') {
       synceds.push({
         prefix: this.BRANCH,
         pathLocation: `${this.options.origin}/${this.getRelativePath(this.microtime)}`,
-        checker: (prefix, cb) => this.checkFile(prefix, cb)
+        checker: (prefix, cb) => this.checkFile(prefix, cb),
       });
     }
 
@@ -139,7 +140,7 @@ class S3Manager {
         if (!err) {
           const config = {
             modules: [],
-            apps: []
+            apps: [],
           };
 
           const jsonRawData = data.Body.toString();
@@ -153,12 +154,12 @@ class S3Manager {
               config.apps.push({
                 alias: item,
                 route: locationUrl.searchParams.get('route'),
-                path: locationUrl.pathname
+                path: locationUrl.pathname,
               });
             } else {
               config.modules.push({
                 alias: item,
-                path: locationUrl.pathname
+                path: locationUrl.pathname,
               });
             }
           }
@@ -192,7 +193,7 @@ class S3Manager {
       importlist.push({
         alias,
         fullPath: fullPath.toString(),
-        index: parseInt(fullPath.searchParams.get('index'))
+        index: parseInt(fullPath.searchParams.get('index')),
       });
     });
 
