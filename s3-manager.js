@@ -10,6 +10,7 @@ const fileConfigPath = path.resolve('config.json');
 const IMPORTSMAP_JSON = 'importsmap.json';
 const LOCAL = 'local';
 const DEVELOPMENT = 'development';
+const PRODUCTION = 'production';
 const LOCALHOST = 'localhost';
 const MICROTIME_ZERO = '000000';
 
@@ -153,6 +154,11 @@ class S3Manager {
 				);
 
 				const data = { imports: {} };
+
+				data.config = {
+					apps: [],
+					modules: [],
+				};
 
 				data.imports[this.APP_ALIAS] = pathURL;
 
