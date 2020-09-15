@@ -10,7 +10,6 @@ const fileConfigPath = path.resolve('config.json');
 const IMPORTSMAP_JSON = 'importsmap.json';
 const LOCAL = 'local';
 const DEVELOPMENT = 'development';
-const PRODUCTION = 'production';
 const LOCALHOST = 'localhost';
 const MICROTIME_ZERO = '000000';
 
@@ -147,26 +146,26 @@ class S3Manager {
 			''
 		);
 
-		return this.checkFile(PRODUCTION, (exists) => {
+		return this.checkFile(this.CODE_BRANCH, (exists) => {
 			if (!exists) {
 				console.warn(
-					`The ${PRODUCTION}.${IMPORTSMAP_JSON} not found in the ${this.CONFIG_BUCKET}/importmaps, this file will be create`
+					`The ${this.CODE_BRANCH}.${IMPORTSMAP_JSON} not found in the ${this.CONFIG_BUCKET}/importmaps, this file will be create`
 				);
 
 				const data = { imports: {} };
 
 				data.imports[this.APP_ALIAS] = pathURL;
 
-				toUpload = { prefix: PRODUCTION, body: data };
+				toUpload = { prefix: this.CODE_BRANCH, body: data };
 
 				return this.upload(toUpload).then(() => data);
 			}
 
-			return this.importMapsContent(PRODUCTION).then((data) => {
+			return this.importMapsContent(this.CODE_BRANCH).then((data) => {
 				const { jsonParseData } = data;
 				jsonParseData.imports[this.APP_ALIAS] = pathURL;
 				this.sortImports(jsonParseData);
-				toUpload = { prefix: PRODUCTION, body: jsonParseData };
+				toUpload = { prefix: this.CODE_BRANCH, body: jsonParseData };
 				return this.upload(toUpload).then(() => data);
 			});
 		});
@@ -179,7 +178,6 @@ class S3Manager {
 	 * @returns {Promise}
 	 */
 	launch() {
-		console.log(this.MODE);
 		if (this.MODE === LOCAL) {
 			return this.localSync();
 		} else if (this.MODE === DEVELOPMENT) {
