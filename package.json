@@ -1,6 +1,6 @@
 {
 	"name": "imports-map-sync",
-	"version": "1.0.4",
+	"version": "1.0.5",
 	"description": "Single SPA importsmaps.json file synchronizer",
 	"main": "s3-manager.js",
 	"scripts": {

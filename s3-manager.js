@@ -7,15 +7,17 @@ require('dotenv').config();
 
 const fileConfigPath = path.resolve('config.json');
 
-const TEMPLATE = 'template';
+const IMPORTSMAP_JSON = 'importsmap.json';
 const LOCAL = 'local';
+const DEVELOPMENT = 'development';
+const PRODUCTION = 'production';
 const LOCALHOST = 'localhost';
 const MICROTIME_ZERO = '000000';
 
 class S3Manager {
 	constructor(type = 'root') {
 		this.type = type;
-		this.microtime = Date.now();
+		this.mcTime = Date.now();
 		this.options = { importMapsPath: '' };
 		this.s3 = new AWS.S3();
 		this.checkEnvs(process.env, [
@@ -25,16 +27,149 @@ class S3Manager {
 			'MODE',
 			'INDEX',
 			'LOCAL_ORIGIN?',
+			'PARENT_DEV_CODE_BRANCH?',
 		]);
 
 		this.LOCAL_ORIGIN = this.LOCAL_ORIGIN || 'http://localhost';
+		this.PARENT_DEV_CODE_BRANCH = this.PARENT_DEV_CODE_BRANCH || 'dev';
 
 		if (this.MODE === LOCAL) {
-			this.BRANCH = LOCALHOST;
+			this.CODE_BRANCH = LOCALHOST;
 		} else {
-			this.checkEnvs(process.env, ['BRANCH']);
+			this.checkEnvs(process.env, ['CODE_BRANCH']);
 			this.options = this.importMapsPath();
 		}
+	}
+
+	/**
+	 *
+	 * @method developmentSync()
+	 * @description sync imports map for local
+	 * @returns {Promise}
+	 */
+	localSync() {
+		return this.checkFile(LOCAL, (exists) => {
+			if (!exists) {
+				throw new Error(
+					`The ${LOCAL}.${IMPORTSMAP_JSON} not found in the ${this.CONFIG_BUCKET}/importmaps, this file is required`
+				);
+			}
+
+			const pathURL = `${this.LOCAL_ORIGIN}:${
+				this.PORT
+			}/${this.getRelativePath()}`;
+
+			return this.importMapsContent(LOCAL).then((data) => {
+				const { jsonParseData } = data;
+				jsonParseData.imports[this.APP_ALIAS] = pathURL;
+				this.sortImports(jsonParseData);
+				return this.upload({ prefix: LOCAL, body: jsonParseData }).then(
+					() => data
+				);
+			});
+		});
+	}
+
+	/**
+	 *
+	 * @method developmentSync()
+	 * @description sync imports map for development
+	 * @param {string} branch
+	 * @returns {Promise}
+	 */
+	developmentSync(branch) {
+		const prtBranch = this.PARENT_DEV_CODE_BRANCH;
+		const { origin } = this.options;
+		let toUpload = {};
+		const branchPathURL = `${origin}/${this.getRelativePath(this.mcTime)}`;
+		return this.checkFile(prtBranch, (exists) => {
+			if (!exists) {
+				throw new Error(
+					`The ${parentDevBranch}.${IMPORTSMAP_JSON} not found in the ${this.CONFIG_BUCKET}/importmaps, this file is required`
+				);
+			}
+
+			return this.importMapsContent(prtBranch).then((prtData) => {
+				const prtJsonParseData = prtData.jsonParseData;
+
+				if (branch !== prtBranch) {
+					return this.checkFile(branch, (exists2) => {
+						//Si el archivo con branch child no existe toma lo que viene del parent y replaza el alias actual
+						if (!exists2) {
+							prtJsonParseData.imports[this.APP_ALIAS] = branchPathURL;
+							toUpload = { prefix: branch, body: prtJsonParseData };
+							return this.upload(toUpload).then(() => prtData);
+						}
+
+						return this.importMapsContent(branch).then((data) => {
+							const jsonParseData = data.jsonParseData;
+
+							Object.keys(prtJsonParseData.imports).forEach((prtItem) => {
+								if (!Object.keys(jsonParseData.imports).includes(prtItem)) {
+									jsonParseData.imports[prtItem] =
+										prtJsonParseData.imports[prtItem];
+								}
+							});
+
+							jsonParseData.imports[this.APP_ALIAS] = branchPathURL;
+
+							this.sortImports(jsonParseData);
+
+							toUpload = { prefix: branch, body: jsonParseData };
+
+							return this.upload(toUpload).then(() => data);
+						});
+					});
+				} else {
+					prtJsonParseData.imports[this.APP_ALIAS] = branchPathURL;
+
+					this.sortImports(prtJsonParseData);
+
+					toUpload = { prefix: branch, body: prtJsonParseData };
+
+					return this.upload(toUpload).then(() => prtData);
+				}
+			});
+		});
+	}
+
+	/**
+	 *
+	 * @method productionSync()
+	 * @description sync imports map for production
+	 * @returns {Promise}
+	 */
+	productionSync() {
+		const { origin } = this.options;
+		let toUpload = {};
+		const pathURL = `${origin}/${this.getRelativePath(this.mcTime)}`.replace(
+			`${this.CODE_BRANCH}/`,
+			''
+		);
+
+		return this.checkFile(PRODUCTION, (exists) => {
+			if (!exists) {
+				console.warn(
+					`The ${PRODUCTION}.${IMPORTSMAP_JSON} not found in the ${this.CONFIG_BUCKET}/importmaps, this file will be create`
+				);
+
+				const data = { imports: {} };
+
+				data.imports[this.APP_ALIAS] = pathURL;
+
+				toUpload = { prefix: PRODUCTION, body: data };
+
+				return this.upload(toUpload).then(() => data);
+			}
+
+			return this.importMapsContent(PRODUCTION).then((data) => {
+				const { jsonParseData } = data;
+				jsonParseData.imports[this.APP_ALIAS] = pathURL;
+				this.sortImports(jsonParseData);
+				toUpload = { prefix: PRODUCTION, body: jsonParseData };
+				return this.upload(toUpload).then(() => data);
+			});
+		});
 	}
 
 	/**
@@ -44,44 +179,14 @@ class S3Manager {
 	 * @returns {Promise}
 	 */
 	launch() {
-		const port = this.LOCAL_ORIGIN.endsWith(LOCALHOST) ? `:${this.PORT}` : '';
-		const synceds = [
-			{
-				prefix: TEMPLATE,
-				pathLocation: `${this.LOCAL_ORIGIN}${port}/${this.getRelativePath()}`,
-				checker: (prefix, cb) => cb(true),
-			},
-		];
-
-		if (this.MODE !== 'local') {
-			synceds.push({
-				prefix: this.BRANCH,
-				pathLocation: `${this.options.origin}/${this.getRelativePath(
-					this.microtime
-				)}`,
-				checker: (prefix, cb) => this.checkFile(prefix, cb),
-			});
+		console.log(this.MODE);
+		if (this.MODE === LOCAL) {
+			return this.localSync();
+		} else if (this.MODE === DEVELOPMENT) {
+			return this.developmentSync(this.CODE_BRANCH);
 		}
 
-		const promises = [];
-
-		synceds.forEach(({ prefix, pathLocation, checker }) => {
-			checker(prefix, (exists) => {
-				const newPrefix = exists === false ? TEMPLATE : prefix;
-				promises.push(
-					this.importMapsContent(newPrefix).then((data) => {
-						const { jsonParseData } = data;
-						jsonParseData.imports[this.APP_ALIAS] = pathLocation;
-						this.sortImports(jsonParseData);
-						return this.upload({ prefix, body: jsonParseData }).then(
-							() => data
-						);
-					})
-				);
-			});
-		});
-
-		return Promise.all(promises);
+		return this.productionSync();
 	}
 
 	/**
@@ -130,10 +235,14 @@ class S3Manager {
 	 *
 	 * @method upload()
 	 * @description create or update importmap.json file by prefix
-	 * @param {object} params, {body: content to write in to file, contentType, prefix: {branch} or 'template'}
+	 * @param {object} params, {body: content to write in to file, contentType, prefix: {branch} | 'local' | 'production'}
 	 * @returns {Promise}
 	 */
-	upload({ body, contentType = 'application/json', prefix = this.BRANCH }) {
+	upload({
+		body,
+		contentType = 'application/json',
+		prefix = this.CODE_BRANCH,
+	}) {
 		const options = {
 			prefix,
 			params: { Body: JSON.stringify(body, null, 2), ContentType: contentType },
@@ -147,7 +256,7 @@ class S3Manager {
 	 * @description get the content for {prefix}.importmaps.json
 	 * file and generate config file json for the entry file can
 	 * read and register applications
-	 * @param {string} prefix {branch} or 'template'
+	 * @param {string} prefix {branch} | 'local' | 'production'
 	 * @returns {Promise}
 	 */
 	importMapsContent(prefix) {
@@ -179,7 +288,7 @@ class S3Manager {
 							});
 						}
 					}
-					if (this.type === 'root' && prefix === TEMPLATE) {
+					if (this.type === 'root' && prefix === LOCAL) {
 						if (fs.existsSync(fileConfigPath)) {
 							fs.unlinkSync(fileConfigPath);
 						}
@@ -233,9 +342,9 @@ class S3Manager {
 		const appFolder = this.appFolder();
 		if (this.type === 'app') {
 			this.checkEnvs(process.env, ['ROUTE']);
-			return `${appFolder}/${this.BRANCH}/js/app.${microtime}.js?index=${this.INDEX}&route=${this.ROUTE}`;
+			return `${appFolder}/${this.CODE_BRANCH}/js/app.${microtime}.js?index=${this.INDEX}&route=${this.ROUTE}`;
 		}
-		return `${appFolder}/${this.BRANCH}/${appFolder}.${microtime}.js?index=${this.INDEX}`;
+		return `${appFolder}/${this.CODE_BRANCH}/${appFolder}.${microtime}.js?index=${this.INDEX}`;
 	}
 
 	/**
@@ -246,7 +355,7 @@ class S3Manager {
 	 * @returns {void}
 	 */
 	checkFile(prefix, callback) {
-		this.s3
+		return this.s3
 			.headObject(this.getParams({ prefix }))
 			.promise()
 			.then(
@@ -264,11 +373,11 @@ class S3Manager {
 	 *
 	 * @method getParams()
 	 * @description getting params for aws
-	 * @param {object} options {prefix: {branch} or 'template', params: Body, ContentType, ... }
+	 * @param {object} options {prefix: {branch} | 'local' | 'production', params: Body, ContentType, ... }
 	 * @returns {object}
 	 */
-	getParams({ prefix = this.BRANCH, params = {} }) {
-		const importmapsPath = `importmaps/{branch}.importmaps.json`;
+	getParams({ prefix = this.CODE_BRANCH, params = {} }) {
+		const importmapsPath = `importmaps/{branch}.${IMPORTSMAP_JSON}`;
 		const defaultParams = {
 			Bucket: this.CONFIG_BUCKET,
 			Key: importmapsPath.replace('{branch}', prefix),
@@ -307,7 +416,7 @@ class S3Manager {
 			.replace(/@/g, '')
 			.replace(/\//g, '-');
 
-		const regexPath = `/(${appsRegex})/${this.BRANCH}`;
+		const regexPath = `/(${appsRegex})/${this.CODE_BRANCH}`;
 
 		return jsonRawData
 			.replace(new RegExp(regexPath, 'g'), '')
@@ -321,7 +430,7 @@ class S3Manager {
 	 * @returns {string}
 	 */
 	getMicroTime() {
-		return this.MODE === LOCAL ? '' : `.${this.microtime}`;
+		return this.MODE === LOCAL ? '' : `.${this.mcTime}`;
 	}
 
 	/**
