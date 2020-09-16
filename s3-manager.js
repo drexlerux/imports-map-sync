@@ -292,7 +292,7 @@ class S3Manager {
 							});
 						}
 					}
-					if (this.type === 'root' && prefix === LOCAL) {
+					if (this.type === 'root') {
 						if (fs.existsSync(fileConfigPath)) {
 							fs.unlinkSync(fileConfigPath);
 						}
