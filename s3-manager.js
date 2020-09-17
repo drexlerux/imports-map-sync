@@ -38,6 +38,7 @@ class S3Manager {
 		} else {
 			this.checkEnvs(process.env, ['CODE_BRANCH']);
 			this.options = this.importMapsPath();
+			console.log(this.options)
 		}
 	}
 
