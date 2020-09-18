@@ -387,6 +387,7 @@ class S3Manager {
 			Bucket: this.CONFIG_BUCKET,
 			Key: importmapsPath.replace('{branch}', prefix),
 		};
+		console.log('defaultParams', defaultParams);
 		return Object.assign(defaultParams, params);
 	}
 
