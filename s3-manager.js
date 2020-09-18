@@ -38,7 +38,6 @@ class S3Manager {
 		} else {
 			this.checkEnvs(process.env, ['CODE_BRANCH']);
 			this.options = this.importMapsPath();
-			console.log(this.options)
 		}
 	}
 
@@ -386,7 +385,6 @@ class S3Manager {
 			Bucket: this.CONFIG_BUCKET,
 			Key: importmapsPath.replace('{branch}', prefix),
 		};
-		console.log('defaultParams', defaultParams);
 		return Object.assign(defaultParams, params);
 	}
 
