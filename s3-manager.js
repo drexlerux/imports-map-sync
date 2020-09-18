@@ -220,6 +220,7 @@ class S3Manager {
 	 * @returns {string} importmaps.json full path
 	 */
 	importMapsPath() {
+		console.log('importMapsPath Parmas', this.getParams({}))
 		const { origin, pathname } = new URL(
 			this.s3.getSignedUrl('getObject', this.getParams({})).toString()
 		);
