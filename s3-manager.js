@@ -220,7 +220,7 @@ class S3Manager {
 	 */
 	importMapsPath() {
 		const origin = `https://${this.CONFIG_BUCKET}.s3.amazonaws.com`;
-		const importMapsPath = `/importmaps/${this.CODE_BRANCH}.${IMPORTSMAP_JSON_FILE}`;
+		const importMapsPath = `${origin}/importmaps/${this.CODE_BRANCH}.${IMPORTSMAP_JSON_FILE}`;
 		return { origin, importMapsPath };
 	}
 
